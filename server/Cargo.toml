@@ -1,0 +1,20 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.79"
+env_logger = "0.10.1"
+futures-util = "0.3.30"
+log = "0.4.20"
+parking_lot = { version = "0.12.1", features = ["hardware-lock-elision"] }
+paste = "1.0.14"
+rand = "0.8.5"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
+tokio = { version = "1.35.1", features = ["rt-multi-thread", "macros", "net", "sync"] }
+tokio-tungstenite = { version = "0.21.0", features = ["native-tls"] }
+ts-rs = "7.1.0"
