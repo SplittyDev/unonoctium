@@ -1,0 +1,10 @@
+{
+    "theme_color": "#21d4c3",
+    "background_color": "#4b4a4a",
+    "display": "standalone",
+    "scope": "/",
+    "start_url": "/",
+    "name": "Unonoctium - Card Game",
+    "description": "An online card game",
+    "short_name": "Unonoctium"
+}

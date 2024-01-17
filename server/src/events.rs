@@ -14,10 +14,12 @@ pub use traits::*;
 
 event! {
     client:
+        Pong,
         CreateLobby,
         JoinLobby
 
     server:
+        Ping,
         LobbyCreated,
         LobbyJoined
 }

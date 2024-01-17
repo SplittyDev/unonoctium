@@ -1,6 +1,9 @@
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
+pub struct Ping {}
+
+#[derive(Debug, Serialize)]
 pub struct LobbyCreated {
     pub lobby_id: String,
 }

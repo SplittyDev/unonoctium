@@ -3,12 +3,41 @@
 @tailwind utilities;
 
 :root {
+  --page-foreground: black;
+  --page-background: hsl(0,0%,95%);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --page-foreground: white;
+    --page-background: hsl(0,0%,10%);
   }
 }
 
+html {
+  /* Fallback for browsers without `dvh` support */
+  min-height: 100vh;
+
+  /* Fallback for browsers with `-webkit-fill-available` support */
+  /* Note: Apparently Chrome 84+ has dropped support for this */
+  min-height: -webkit-fill-available;
+
+  /* Fix overflow in modern browsers */
+  /* See: https://caniuse.com/?search=dvh */
+  min-height: 100dvh;
+}
+
 body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--page-foreground);
+  background: var(--page-background);
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui, helvetica neue, helvetica, Cantarell, Ubuntu, roboto, noto, arial, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  padding: 0;
 }

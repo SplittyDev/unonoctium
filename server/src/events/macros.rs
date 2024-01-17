@@ -38,6 +38,7 @@ macro_rules! event {
         paste::paste! {
             #[derive(Debug, Deserialize)]
             pub struct [<$name Event>] {
+                pub id: &'static str,
                 pub data: crate::events::client::$name,
             }
 
@@ -48,6 +49,7 @@ macro_rules! event {
                     }
 
                     Ok(Self {
+                        id: Self::ID,
                         data: serde_json::from_value(event.data.into_owned())?,
                     })
                 }

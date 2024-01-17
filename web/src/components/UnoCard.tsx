@@ -1,4 +1,5 @@
 import UnoCardBackground from '@/assets/card.png'
+import { Children } from 'react'
 
 enum CardType {
     Number,
@@ -11,10 +12,10 @@ enum CardType {
 
 type Props = {
     hue: number
-    type: CardType
+    children: React.ReactNode
 }
 
-export default function UnoCard({ hue, type }: Props) {
+export default function UnoCard({ hue, children }: Props) {
     const originalWidth = 400
     const originalHeight = 660
     const scale = 0.5
@@ -29,8 +30,13 @@ export default function UnoCard({ hue, type }: Props) {
     }
 
     return (
-        <div className={`relative hover:pb-[1rem] transition-all cursor-pointer`} style={style}>
-            <img src={UnoCardBackground.src} alt="Uno card" className="object-contain top-0 left-0 w-full h-full" />
+        <div className={`relative hover:translate-y-[-1rem] transition-all cursor-pointer`} style={style}>
+            <img src={UnoCardBackground.src} alt="Uno card" className="absolute object-contain top-0 left-0 w-full h-full" />
+            {Children.map(children, child => (
+                <div className="absolute top-0 left-0 w-full h-full">
+                    {child}
+                </div>
+            ))}
         </div>
     )
 }

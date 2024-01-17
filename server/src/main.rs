@@ -1,9 +1,9 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use log::*;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, Mutex};
 use tokio::net::{TcpListener, TcpStream};
 
 mod events;
@@ -12,7 +12,7 @@ mod state;
 use state::{Game, Lobby, Player};
 
 use crate::{
-    events::{CreateLobbyEvent, Event, FromBaseEvent as _, LobbyCreated},
+    events::{CreateLobbyEvent, Event, FromBaseEvent as _, LobbyCreated, PongEvent},
     state::IdGenerator,
 };
 
@@ -50,54 +50,87 @@ impl GameServer {
     }
 
     async fn accept_connection(&self, peer: SocketAddr, stream: TcpStream) -> Result<()> {
-        let mut ws_stream = tokio_tungstenite::accept_async(stream)
+        let ws_stream = tokio_tungstenite::accept_async(stream)
             .await
             .expect("Accepting websocket connection failed");
 
+        let (mut ws_sender, mut ws_receiver) = ws_stream.split();
+
         info!("[Server] Accepted client: {}", peer);
 
-        while let Some(msg) = ws_stream.next().await {
-            let msg = msg?;
+        let mut ping_interval = tokio::time::interval(Duration::from_millis(5000));
 
-            // Only handle text messages for now
-            let Ok(msg) = msg.to_text() else { continue };
+        let ping_timeout = Duration::from_secs(60);
+        let last_ping_response = Arc::new(Mutex::new(tokio::time::Instant::now()));
 
-            // Parse base event
-            let event = serde_json::from_str::<events::BaseEvent>(msg)
-                .context("Unable to deserialize event")?;
+        loop {
+            tokio::select! {
+                msg = ws_receiver.next() => {
+                    let Some(msg) = msg else { break };
+                    let msg = msg?;
 
-            info!("[Client -> Server]: {}", event.id);
+                    // Only handle text messages for now
+                    let Ok(msg) = msg.to_text() else { continue };
 
-            // Handle specific event
-            match event.id.as_ref() {
-                // Create lobby
-                CreateLobbyEvent::ID => {
-                    _ = CreateLobbyEvent::from_base_event(event)?;
+                    // Parse base event
+                    let event = serde_json::from_str::<events::BaseEvent>(msg)
+                        .context("Unable to deserialize event")?;
 
-                    // Create player
-                    let player_id = Player::generate_id();
-                    let player = Player::new(player_id, None, peer);
+                    info!("[Client -> Server]: {}", event.id);
 
-                    // Create lobby
-                    let lobby_id = Lobby::generate_id();
-                    let lobby = Lobby::new(lobby_id.clone(), player);
+                    // Handle specific event
+                    match event.id.as_ref() {
+                        // Pong
+                        PongEvent::ID => {
+                            let _ = PongEvent::from_base_event(event)?;
 
-                    // Write lobby to server state
-                    self.lobbies.write().insert(lobby.id.clone(), lobby);
+                            // Update last ping response
+                            *last_ping_response.lock() = tokio::time::Instant::now();
+                        }
 
-                    // Send response
-                    LobbyCreated { lobby_id }
-                        .into_event()
-                        .send(&mut ws_stream)
-                        .await?;
-                }
+                        // Create lobby
+                        CreateLobbyEvent::ID => {
+                            _ = CreateLobbyEvent::from_base_event(event)?;
 
-                // Unknown event
-                _ => {
-                    warn!("Unknown event ID: {}", event.id);
+                            // Create player
+                            let player_id = Player::generate_id();
+                            let player = Player::new(player_id, None, peer);
+
+                            // Create lobby
+                            let lobby_id = Lobby::generate_id();
+                            let lobby = Lobby::new(lobby_id.clone(), player);
+
+                            // Write lobby to server state
+                            self.lobbies.write().insert(lobby.id.clone(), lobby);
+
+                            // Send response
+                            LobbyCreated { lobby_id }
+                                .into_event()
+                                .send(&mut ws_sender)
+                                .await?;
+                        }
+
+                        // Unknown event
+                        _ => {
+                            warn!("Unknown event ID: {}", event.id);
+                        }
+                    }
+                },
+
+                _ = ping_interval.tick() => {
+                    // Check if we've received a ping response within the timeout
+                    let last_ping_response = *last_ping_response.lock();
+                    if tokio::time::Instant::now() - last_ping_response > ping_timeout {
+                        warn!("Client {} timed out", peer);
+                        break;
+                    }
+
+                    events::Ping {}.into_event().send(&mut ws_sender).await?;
                 }
             }
         }
+
+        println!("Client {} disconnected", peer);
 
         Ok(())
     }

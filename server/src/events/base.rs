@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use anyhow::Context;
-use futures_util::SinkExt;
+use futures_util::{SinkExt, stream::SplitSink};
 use log::*;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
@@ -15,19 +15,24 @@ use super::Event;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BaseEvent {
     pub id: Cow<'static, str>,
+
+    #[serde(flatten)]
     pub data: Cow<'static, serde_json::Value>,
 }
 
 impl BaseEvent {
     /// Sends the event to a client.
-    pub async fn send(self, stream: &mut WebSocketStream<TcpStream>) -> anyhow::Result<()> {
+    pub async fn send(self, stream: &mut SplitSink<WebSocketStream<TcpStream>, Message>) -> anyhow::Result<()> {
         info!("[Server -> Client]: {}", &self.id);
 
         // Send the event to the client
         stream
             .send(self.try_into()?)
             .await
-            .context("Unable to send message to client")
+            .context("Unable to send message to client")?;
+
+        // Flush the stream
+        stream.flush().await.context("Unable to flush stream")
     }
 }
 
